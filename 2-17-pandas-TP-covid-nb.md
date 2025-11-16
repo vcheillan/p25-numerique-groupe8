@@ -431,7 +431,6 @@ combien y-a-t-il d'entrées (de mesures différentes)
 ```{code-cell} ipython3
 print("colonnes:", list(Fr.columns))
 print("nombre d'entrées:", len(Fr))
-
 ```
 
 +++ {"tags": ["framed_cell"]}
@@ -558,6 +557,7 @@ rangez votre résultat dans une variable `clean_df`
 pivoted = global_df.pivot_table(index=["country", "date"], values=["confirmed", "deaths", "recovered"])
 pivoted.head()
 ```
+
 ```{code-cell} ipython3
 clean_df = global_df.set_index(['country', 'date']).sort_index()
 clean_df.head()
@@ -585,7 +585,7 @@ extrayez de    cette dataframe toutes les données relatives à la France
 
 ```{code-cell} ipython3
 # votre code
-Fr2 = pivoted.loc["France"])
+Fr2 = pivoted.loc["France"]
 Fr2.head()
 ```
 
@@ -733,7 +733,6 @@ mesures = ['deaths', 'confirmed']
 
 df2 = clean_df.loc[(pays, slice(None)), mesures]
 df3 = df2.unstack(level=0)
-
 ```
 
 ```{code-cell} ipython3
@@ -790,129 +789,152 @@ plt.show()
 ## proposez des analyses personnelles sur ces données
 
 ```{code-cell} ipython3
-# votre code
-#Taux de croissance en 2021
-countries = ['France', 'Italy', 'Germany', 'Spain']
-growth = {}
-for c in countries:
-    s = clean_df.loc[c, 'confirmed'].loc['2021-01-01':'2021-12-31']
-    growth[c] = (s.iloc[-1] - s.iloc[0]) / max(1, s.iloc[0])
 
-pd.Series(growth).sort_values(ascending=False)
+world = global_df.groupby('date')['confirmed'].sum()
+def partition_des_cas_par_pays(country):
+    pays = clean_df.loc[country, 'confirmed']
+    part_pays = (pays / world) * 100
+    part_pays = part_pays.dropna()
+    plt.figure(figsize=(10,5))
+    plt.plot(part_pays)
+    plt.title(f'Évolution de la part des cas {country} dans le total mondial (%)')
+    plt.xlabel("Date")
+    plt.ylabel("Pourcentage (%)")
+    plt.legend(f'{country}')
+    plt.grid()
+    plt.tight_layout()
+
+
+partition_des_cas_par_pays('Germany')
+plt.show()
+partition_des_cas_par_pays('France')
+plt.show()
+partition_des_cas_par_pays('Italy')
+plt.show()
 ```
 
 ```{code-cell} ipython3
-# votre code
-# Comparaison des décès au 31 août 2021
-for c in ['France', 'Italy']:
-    val = clean_df.loc[c, 'deaths'].loc[:'2021-08-31'].iloc[-1]
-    print(c, ':', val)
+world = global_df.groupby('date')['confirmed'].sum()
+
+def part_pays(country):
+    pays = clean_df.loc[country, 'confirmed']
+    part = (pays / world) * 100
+    return part.dropna()
+
+plt.figure(figsize=(12, 6))
+
+for country in ['Germany', 'France', 'Italy','Spain']:
+    plt.plot(part_pays(country), label=country)
+
+plt.title("Évolution de la part des cas dans le total mondial (%)")
+plt.xlabel("Date")
+plt.ylabel("Pourcentage (%)")
+plt.grid()
+plt.legend()
+plt.tight_layout()
+plt.show()
 ```
 
 ```{code-cell} ipython3
-# votre code
-# Ratio deaths / confirmed
-rows = []
-for c in ['France', 'Italy', 'Germany', 'Spain']:
-    dea = clean_df.loc[c, 'deaths'].loc[:'2021-08-31'].iloc[-1]
-    conf = clean_df.loc[c, 'confirmed'].loc[:'2021-08-31'].iloc[-1]
-    rows.append({'country': c, 'ratio': dea / max(1, conf)})
-
-pd.DataFrame(rows).set_index('country')
-```
-
-```{code-cell} ipython3
-#La France a bien soigné ses malades !!
-```
-
-```{code-cell} ipython3
-# # Cas journaliers, décès journaliers
-#diff est une fonction que j'ai trouvé sur internet qui fait la difference entre les deux valeurs consecutives 
-countries = ["France", "Italy", "Germany", "Spain"]
-
-analyse = {}
-
-for c in countries:
-    dfc = clean_df.loc[c].copy()
-    dfc['new_confirmed'] = dfc['confirmed'].diff().fillna(0)
-    dfc['new_deaths'] = dfc['deaths'].diff().fillna(0)
-    
-    analyse[c] = dfc
-
-
-analyse['France'][['new_confirmed', 'new_deaths', 'acceleration']].head()
 
 ```
 
 ```{code-cell} ipython3
-analyse['France'][['new_confirmed', 'new_deaths']].plot()
-plt.title("France — cas et décès journaliers")
+france = clean_df.loc['France', 'confirmed']
+
+#Vaccins 
+vaccine_dates = {
+    "Pfizer (11/12/2020)": "2020-12-11",
+    "Moderna (18/12/2020)": "2020-12-18",
+    "AstraZeneca (04/01/2021)": "2021-01-04",
+    "Johnson&Johnson (27/02/2021)": "2021-02-27",
+}
+
+plt.figure(figsize=(12, 6))
+plt.plot(france.index, france.values, label="Cas cumulés en France", linewidth=2)
+
+# Lignes verticales pour les vaccins
+for label, d in vaccine_dates.items():
+    plt.axvline(pd.to_datetime(d), color='red', linestyle='--', alpha=0.7)
+    plt.text(pd.to_datetime(d),
+             france.max() * 0.7,   # position du texte
+             label,
+             rotation=90,
+             verticalalignment='center',
+             color='red',
+             fontsize=9)
+#Lignes verticales trouvées sur internet
+plt.title("Évolution des cas COVID en France avec dates d'arrivée des vaccins")
+plt.xlabel("Date")
+plt.ylabel("Cas cumulés en France")
+plt.grid()
+plt.tight_layout()
 plt.show()
 
+#L'appartition des vaccins à un impact à court terme puisque l'augmentation des cas mondiaux semble se stabiliser pendant près de 7 mois 
 ```
 
-
-
 ```{code-cell} ipython3
-# évolution du taux de mortalite
-mortalite = {}
+fr = clean_df.loc['France'].copy()
 
-for c in countries:
-    dfc = clean_df.loc[c].copy()
-    dfc['mortalite'] = dfc['deaths'] / dfc['confirmed'].replace(0, 1)
-    mortalite[c] = dfc
+fr['new_cases'] = fr['confirmed'].diff().fillna(0)
 
-# Exemple : France
-mortalite['France']['mortalite'].plot()
-plt.title("France — Taux de mortalité (deaths/confirmed)")
+monthly_cases = fr['new_cases'].resample('ME').sum()
+
+#Date d'obligation vaccinale
+mandatory_date = pd.to_datetime("2021-09-15")
+plt.figure(figsize=(12, 6))
+plt.plot(monthly_cases.index, monthly_cases.values, marker='o', linewidth=2, label="Cas mensuels en France")
+plt.axvline(mandatory_date, color='red', linestyle='--', alpha=0.8)
+plt.text(
+    mandatory_date,
+    monthly_cases.max()*0.8,
+    "Obligation vaccinale (15/09/2021)",
+    rotation=90,
+    verticalalignment='center',
+    color='red',
+    fontsize=10
+)
+#La partie du tracé de la ligne verticale a été trouvée sur internet 
+# Mise en forme
+plt.title("Évolution des cas COVID mensuels en France\navec date d'obligation vaccinale")
+plt.xlabel("Date")
+plt.ylabel("Nouveaux cas par mois")
+plt.grid()
+plt.tight_layout()
 plt.show()
 
+#On remarque que l'obligation vaccinale a un impact après 4 mois, 
+#cohérent avec le développement des anticorps et de la mise en place du vaccin pour tous 
 ```
-```{code-cell} ipython3
-#Au début on etait pas très bon...
-```
-```{code-cell} ipython3
-for c in countries:
-    mortalite[c]['mortalite'].plot(alpha=0.7)
 
-plt.title("Taux de mortalité — comparaison pays")
-plt.legend(countries)
+```{code-cell} ipython3
+europe_countries = [
+    "France", "Italy", "Germany", "Spain", "Portugal", "Belgium", "Netherlands",
+    "Switzerland", "Austria", "Poland", "Czechia", "Slovakia", "Hungary",
+    "Slovenia", "Croatia", "Serbia", "Greece", "Romania", "Bulgaria",
+    "Denmark", "Sweden", "Norway", "Finland", "Ireland", "United Kingdom",
+    "Belarus", "Ukraine"
+]
+
+# Filtrage automatique pour ne garder que les pays présents dans le dataset
+europe_countries = [c for c in europe_countries if c in clean_df.index.get_level_values(0)]
+europe_df = clean_df.loc[europe_countries]['confirmed'].groupby('date').sum()
+europe_daily = europe_df.diff().fillna(0)
+world_df = global_df.groupby('date')['confirmed'].sum()
+world_daily = world_df.diff().fillna(0)
+plt.figure(figsize=(12, 6))
+plt.plot(world_daily.index, world_daily.values, label="Cas mondiaux journaliers", linewidth=2)
+plt.plot(europe_daily.index, europe_daily.values, label="Cas européens journaliers", linewidth=2)
+plt.title("Évolution des cas journaliers : Europe vs Monde")
+plt.xlabel("Date")
+plt.ylabel("Nombre de cas par jour")
+plt.legend()
+plt.grid()
+plt.tight_layout()
 plt.show()
-
 ```
+
 ```{code-cell} ipython3
-#L'ALlemagne etait surtout bonne au debut
-```
-```{code-cell} ipython3
-#détection des pics
-import numpy as np
-
-pic_info = []
-
-for c in countries:
-    dfc = clean_df.loc[c].copy()
-
-    dfc['new_confirmed'] = dfc['confirmed'].diff().fillna(0)
-    dfc['new_deaths'] = dfc['deaths'].diff().fillna(0)
-
-    # pic cas journaliers
-    date_pic_cas = dfc['new_confirmed'].idxmax()
-    pic_cas = dfc['new_confirmed'].max()
-
-    # pic décès journaliers
-    date_pic_deaths = dfc['new_deaths'].idxmax()
-    pic_deaths = dfc['new_deaths'].max()
-
-    pic_info.append({
-        "country": c,
-        "pic_cas": pic_cas,
-        "pic_cas_date": date_pic_cas,
-        "pic_deaths": pic_deaths,
-        "pic_deaths_date": date_pic_deaths
-    })
-
-import pandas as pd
-pd.DataFrame(peak_info)
 
 ```
-
